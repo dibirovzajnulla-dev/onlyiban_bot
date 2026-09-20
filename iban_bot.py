@@ -16,7 +16,8 @@ NAME_RE = re.compile(
     r"(?:account\s*name|beneficiary(?:\s*name)?|account\s*holder)\s*[:\-]\s*(.+)",
     re.I,
 )
-AMOUNT_LINE = re.compile(r"\s*(\d[\d\s.,]*)\s*")
+AMOUNT_LINE = re.compile(r"\s*(\d[\d\s.,]*)\s*(?:[A-Za-z]{3}|дирх\w*)?\s*")
+PLAIN_NAME = re.compile(r"[A-Za-z][A-Za-z.'\-]*(?:\s+[A-Za-z][A-Za-z.'\-]*)+")
 LOOKS_LIKE_REQS = re.compile(r"\b(iban|swift|account)\b", re.I)
 
 FIELDS = ("iban", "name", "amount")
@@ -37,6 +38,14 @@ def parse(text: str):
 
     m = NAME_RE.search(text)
     name = m.group(1).strip() if m else None
+    if not name:
+        # Имя без подписи: строка из 2+ латинских слов (последняя подходящая)
+        cands = [
+            l.strip()
+            for l in text.splitlines()
+            if PLAIN_NAME.fullmatch(l.strip()) and "bank" not in l.lower()
+        ]
+        name = cands[-1] if cands else None
 
     amount = None
     for line in text.splitlines():
